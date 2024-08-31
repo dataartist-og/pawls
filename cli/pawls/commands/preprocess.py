@@ -9,6 +9,7 @@ import glob
 from pawls.preprocessors.grobid import process_grobid
 from pawls.preprocessors.pdfplumber import process_pdfplumber
 from pawls.preprocessors.tesseract import process_tesseract
+GROBID_HOST = "https://d231-2806-290-880a-49ba-e15e-de91-9217-90bc.ngrok-free.app"
 
 @click.command(context_settings={"help_option_names": ["--help", "-h"]})
 @click.argument("preprocessor", type=str)
@@ -42,7 +43,7 @@ def preprocess(preprocessor: str, path: click.Path):
         sha = path.name.strip(".pdf")
         pbar.set_description(f"Processing {sha[:10]}...")
         if preprocessor == "grobid":
-            data = process_grobid(str(path))
+            data = process_grobid(str(path), GROBID_HOST)
         elif preprocessor == "pdfplumber":
             data = process_pdfplumber(str(path))
         elif preprocessor == "ocr":

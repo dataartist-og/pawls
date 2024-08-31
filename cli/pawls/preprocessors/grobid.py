@@ -12,6 +12,7 @@ def fetch_grobid_structure(pdf_file: str, grobid_host: str = "http://localhost:8
     url = "{}/api/processPdfStructure".format(grobid_host)
     resp = requests.post(url, files=files)
     if resp.status_code == 200:
+        
         return json.loads(resp.text)
     else:
         raise Exception("Grobid returned status code {}".format(resp.status_code))
