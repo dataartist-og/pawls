@@ -17,6 +17,7 @@ import { PDFPage } from './pages';
 import { CenterOnPage } from './components';
 import { getAllocatedPaperStatus, PaperStatus } from './api';
 import { QuestionCircleOutlined } from '@ant-design/icons';
+import FileSystem from './components/FileSystem';
 
 const RedirectToFirstPaper = () => {
     const [papers, setPapers] = useState<PaperStatus[] | null>(null);
@@ -51,18 +52,31 @@ const RedirectToFirstPaper = () => {
     return content;
 };
 
+// const App = () => {
+//     return (
+//         <>
+//             <BrowserRouter>
+//                 <Route path="/" exact component={FileSystem} />
+//                 <Route path="/pdfs" exact component={RedirectToFirstPaper} />
+//                 <Route path="/pdf/:sha" component={PDFPage} />
+//             </BrowserRouter>
+//             <GlobalStyles />
+//         </>
+//     );
+// };
+
 const App = () => {
     return (
         <>
             <BrowserRouter>
-                <Route path="/" exact component={RedirectToFirstPaper} />
+                <Route path="/" exact render={() => <FileSystem rootPath="/path/to/your/files" />} />
+                <Route path="/pdfs" exact component={RedirectToFirstPaper} />
                 <Route path="/pdf/:sha" component={PDFPage} />
             </BrowserRouter>
             <GlobalStyles />
         </>
     );
 };
-
 // Setup the viewport so it takes up all available real-estate.
 const GlobalStyles = createGlobalStyle`
     html, body, #root {

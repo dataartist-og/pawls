@@ -1,0 +1,3 @@
+[submodule "api/papermage"]
+	path = api/papermage
+	url = https://github.com/dataartist-og/papermage.git
