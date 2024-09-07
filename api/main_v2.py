@@ -8,14 +8,15 @@ from fastapi import FastAPI, HTTPException, Header, Response, Body, UploadFile, 
 from fastapi.responses import FileResponse
 from fastapi.encoders import jsonable_encoder
 
-from app.metadata import PaperStatus, Allocation
-from app.annotations import Annotation, RelationGroup, PdfAnnotation, Bounds, Label, TokenId
-from app.utils import StackdriverJsonFormatter
-from app import pre_serve
+from skiff.app.api.app.metadata import PaperStatus, Allocation
+from skiff.app.api.app.annotations import Annotation, RelationGroup, PdfAnnotation, Bounds, Label, TokenId
+from skiff.app.api.app.utils import StackdriverJsonFormatter
+from skiff.app.api.app import pre_serve
 
 import papermage
 from papermage.recipes import CoreRecipe
 from papermage.magelib import Document, Box, Entity, Span
+import shutil
 
 IN_PRODUCTION = os.getenv("IN_PRODUCTION", "dev")
 
@@ -93,6 +94,69 @@ def all_pdf_shas() -> List[str]:
     pdfs = glob.glob(f"{configuration.output_directory}/*/*.pdf")
     return [p.split("/")[-2] for p in pdfs]
 
+
+@app.post("/api/upload_pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    try:
+        # Save the uploaded file
+        file_location = f"{configuration.output_directory}/{file.filename}"
+        with open(file_location, "wb+") as file_object:
+            file_object.write(file.file.read())
+
+        # Process the PDF using core_recipe
+        document = Document(file_location)
+        core_recipe = CoreRecipe()
+        from pdf2image import convert_from_path
+        import os
+
+        # Set the poppler path
+        os.environ["PATH"] += os.pathsep + "/openhands/miniforge3/envs/poppler_env/bin"
+
+        # Process the PDF using core_recipe
+        document = core_recipe.from_pdf(file_location)
+
+        # Store the output of the to_json method
+        json_output = document.to_json()
+        sha = file.filename.split('.')[0]
+        json_output_location = f"{configuration.output_directory}/{sha}/{sha}.json"
+        pdf_output_location = f"{configuration.output_directory}/{sha}/{sha}.pdf"
+        os.makedirs(os.path.dirname(json_output_location), exist_ok=True)
+        shutil.copy(file_location, pdf_output_location) 
+        os.makedirs(os.path.dirname(json_output_location), exist_ok=True) 
+        with open(json_output_location, "w") as json_file:
+            json.dump(json_output, json_file)
+
+        return {"filename": file.filename, "status": "success"}
+    except Exception as e:
+        logger.error(f"Error processing PDF: {e}")
+        raise HTTPException(status_code=500, detail="Error processing PDF")
+    
+# @app.get("/api/doc/{sha}/pdf")
+# async def get_pdf(sha: str):
+#     """
+#     Fetches a PDF.
+
+#     sha: str
+#         The sha of the pdf to return.
+#     """
+#     json_path = os.path.join(configuration.output_directory, sha, f"{sha}.json")
+#     if not os.path.exists(json_path):
+#         raise HTTPException(status_code=404, detail="PDF not found")
+    
+#     with open(json_path, "r") as f:
+#         doc_json = json.load(f)
+    
+#     doc = Document.from_json(doc_json)
+    
+#     # Extract necessary data from Document
+#     pdf_data = {
+#         "symbols": doc.symbols,
+#         "metadata": doc.metadata.to_dict() if doc.metadata else {}, 
+#         "pages": [page.__dict__ for page in doc.pages.entities], 
+#     }
+    
+#     return pdf_data
+
 @app.get("/api/doc/{sha}/pdf")
 async def get_pdf(sha: str):
     """
@@ -101,42 +165,22 @@ async def get_pdf(sha: str):
     sha: str
         The sha of the pdf to return.
     """
-    json_path = os.path.join(configuration.output_directory, sha, f"{sha}.json")
-    if not os.path.exists(json_path):
-        raise HTTPException(status_code=404, detail="PDF not found")
-    
-    with open(json_path, "r") as f:
-        doc_json = json.load(f)
-    
-    doc = Document.from_json(doc_json)
-    
-    # Extract necessary data from Document
-    pdf_data = {
-        "symbols": doc.symbols,
-        "metadata": doc.metadata.to_dict(),
-        "pages": [page.to_dict() for page in doc.pages],
-    }
-    
-    return pdf_data
+    pdf = os.path.join(configuration.output_directory, sha, f"{sha}.pdf")
+    pdf_exists = os.path.exists(pdf)
+    if not pdf_exists:
+        raise HTTPException(status_code=404, detail=f"pdf {sha} not found.")
 
-@app.post("/upload_pdf")
-async def upload_pdf(file: UploadFile = File(...)):
-    pdf_path = f"{configuration.output_directory}/{file.filename}"
-    with open(pdf_path, "wb") as f:
-        f.write(await file.read())
-    
-    core_recipe = CoreRecipe()
-    doc = core_recipe.from_pdf(pdf_path)
-    doc_json = doc.to_json()
-    
-    output_dir = f"{configuration.output_directory}/{file.filename.split('.')[0]}"
-    os.makedirs(output_dir, exist_ok=True)
+    return FileResponse(pdf, media_type="application/pdf")
+
+
     
     with open(f"{output_dir}/pdf_structure.json", "w") as f:
         json.dump(doc_json, f)
     
     with open(f"{output_dir}/{file.filename.split('.')[0]}.json", "w") as f:
         json.dump(doc_json, f)
+    
+    return {"sha": file.filename.split('.')[0]}
     
     return {"filename": file.filename, "message": "PDF processed and saved successfully"}
 
@@ -375,3 +419,4 @@ def get_allocation_info(x_auth_request_email: str = Header(None)) -> Allocation:
         response = Allocation(papers=papers, hasAllocatedPapers=True)
 
     return response
+

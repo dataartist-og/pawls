@@ -17,8 +17,8 @@ import { PDFPage } from './pages';
 import { CenterOnPage } from './components';
 import { getAllocatedPaperStatus, PaperStatus } from './api';
 import { QuestionCircleOutlined } from '@ant-design/icons';
-import FileSystem from './components/FileSystem';
-
+// import FileSystem from './components/FileSystem';
+import UploadLanding from './components/UploadLanding';
 const RedirectToFirstPaper = () => {
     const [papers, setPapers] = useState<PaperStatus[] | null>(null);
 
@@ -69,7 +69,11 @@ const App = () => {
     return (
         <>
             <BrowserRouter>
-                <Route path="/" exact render={() => <FileSystem rootPath="/path/to/your/files" />} />
+                <Route
+                    path="/"
+                    exact
+                    render={() => <UploadLanding />}
+                />
                 <Route path="/pdfs" exact component={RedirectToFirstPaper} />
                 <Route path="/pdf/:sha" component={PDFPage} />
             </BrowserRouter>

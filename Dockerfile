@@ -1,15 +1,12 @@
 # Start with Ubuntu as the base image
-FROM ubuntu:22.04
+FROM ghcr.io/all-hands-ai/runtime:cca617c826a9759e2cf087c5c53cbe20
 
 RUN adduser --system --no-create-home --shell /bin/false --group --disabled-login nginx
 
 
-# Install basic packages and dependencies
+# # Install basic packages and dependencies
 RUN apt-get update && apt-get install -y \
-	curl wget git vim nano unzip zip \
-	python3 python3-pip python3-venv python3-dev \
-	build-essential openssh-server sudo gcc jq g++ make \
-	iproute2 cmake libnss3 libnss3-dev libcairo2-dev \
+	cmake libnss3 libnss3-dev libcairo2-dev \
 	libjpeg-dev libgif-dev libblkid-dev e2fslibs-dev \
 	libboost-all-dev libaudit-dev libopenjp2-7-dev \
 	nodejs npm nginx \
@@ -34,9 +31,9 @@ WORKDIR /usr/local/src/skiff/app
 
 COPY api/papermage /usr/local/src/papermage
 
-RUN pip install --upgrade pip setuptools wheel
+RUN /openhands/miniforge3/bin/pip install --upgrade pip setuptools wheel
 
-RUN cd /usr/local/src/papermage && pip install -e .[dev,predictors,visualizers]
+RUN cd /usr/local/src/papermage && /openhands/miniforge3/bin/pip install -e .[dev,predictors,visualizers]
 
 
 # Copy API files
@@ -50,19 +47,19 @@ COPY api/main_v2.py api/main_v2.py
 # Set up UI
 WORKDIR /usr/local/src/skiff/app/ui
 COPY ui/package.json ui/yarn.lock ./
-RUN npm install -g yarn && yarn install
+RUN yarn install
 
 COPY ui .
-RUN yarn build
+# RUN yarn build
 
 # Set up Nginx
 COPY proxy/nginx.conf /etc/nginx/nginx.conf
 COPY proxy/local.conf /etc/nginx/conf.d/default.conf
-RUN mkdir -p /var/www/skiff/ui && cp -r /usr/local/src/skiff/app/ui/build/* /var/www/skiff/ui/
+# RUN mkdir -p /var/www/skiff/ui && cp -r /usr/local/src/skiff/app/ui/build/* /var/www/skiff/ui/
 
 # Set up entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY entrypoint.sh /app_entrypoint.sh
+RUN chmod +x /app_entrypoint.sh
 
 EXPOSE 80
 
@@ -84,4 +81,4 @@ EXPOSE 80
 # Ensure Nginx can write to its log files
 RUN chown -R root:root /var/log/nginx /var/lib/nginx
 
-ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/app_entrypoint.sh"]
